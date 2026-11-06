@@ -8,6 +8,9 @@ $today = intval(cn_db_value('SELECT COUNT(*) FROM ' . cn_table('articles') . ' W
     array(date('Y-m-d') . ' 00:00:00'), 0));
 $srcTotal = intval(cn_db_value('SELECT COUNT(*) FROM ' . cn_table('sources'), array(), 0));
 $srcOn = intval(cn_db_value('SELECT COUNT(*) FROM ' . cn_table('sources') . ' WHERE enabled = 1', array(), 0));
+$fullTotal = cn_has_fulltext_column()
+    ? intval(cn_db_value('SELECT COUNT(*) FROM ' . cn_table('articles') . ' WHERE status = 1 AND content_fetched = 1', array(), 0))
+    : 0;
 $lastCollect = cn_db_value('SELECT MAX(last_collect_at) FROM ' . cn_table('sources'), array(), '');
 $logs = cn_db_all('SELECT * FROM ' . cn_table('collect_log') . ' ORDER BY id DESC LIMIT 8');
 $cronPath = dirname(dirname(__FILE__)) . '/cron.php';
@@ -20,6 +23,9 @@ $checks = array(
     'cURL' => function_exists('curl_init') ? '已启用' : '未启用（将回退 file_get_contents）',
     'SimpleXML' => extension_loaded('simplexml') ? '已启用' : '缺失（必须）',
     'mbstring' => extension_loaded('mbstring') ? '已启用' : '未启用（可选）',
+    'DOM 扩展' => class_exists('DOMDocument') ? '已启用（正文提取效果最佳）' : '未启用（自动降级为正则提取）',
+    'curl_multi 并行' => function_exists('curl_multi_init') ? '已启用（全文并行抓取）' : '未启用（全文串行抓取）',
+    '全文抓取' => cn_setting('fulltext_enabled', '1') === '1' ? '已启用' : '已关闭',
     '数据/锁目录可写' => is_writable(CN_ROOT . '/data') ? '是' : '否（请创建 data 目录并给写权限）',
     'curl 出站网络' => '可在「立即采集」页测试各来源连通性',
 );
@@ -28,6 +34,7 @@ cn_admin_head('仪表盘', 'index');
 echo '<div class="stats">';
 echo '<div class="stat"><label>收录资讯</label><strong>' . $total . '</strong><small>已上线展示</small></div>';
 echo '<div class="stat"><label>今日新增</label><strong>' . $today . '</strong><small>' . date('Y-m-d') . '</small></div>';
+echo '<div class="stat"><label>已抓到全文</label><strong>' . $fullTotal . '</strong><small>占 ' . ($total > 0 ? round($fullTotal / $total * 100) : 0) . '%</small></div>';
 echo '<div class="stat"><label>资讯来源</label><strong>' . $srcOn . ' / ' . $srcTotal . '</strong><small>启用 / 总数</small></div>';
 echo '<div class="stat"><label>最近采集</label><strong style="font-size:16px">' . ($lastCollect ? h(cn_time_ago($lastCollect)) : '尚未执行') . '</strong><small>' . ($lastCollect ? h($lastCollect) : '请配置定时任务') . '</small></div>';
 echo '</div>';

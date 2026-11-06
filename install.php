@@ -52,7 +52,7 @@ if (file_exists($lockFile)) {
         $adminUser = trim(isset($_POST['admin_user']) ? $_POST['admin_user'] : '');
         $adminPass = isset($_POST['admin_pass']) ? (string) $_POST['admin_pass'] : '';
         $adminPass2 = isset($_POST['admin_pass2']) ? (string) $_POST['admin_pass2'] : '';
-        $siteName = trim(isset($_POST['site_name']) ? $_POST['site_name'] : '链讯 CryptoIndex');
+        $siteName = trim(isset($_POST['site_name']) ? $_POST['site_name'] : 'CryptoIndex');
         $timezone = isset($_POST['timezone']) ? $_POST['timezone'] : 'Asia/Shanghai';
 
         if ($dbName === '' || $dbUser === '' || $adminUser === '') {
@@ -119,14 +119,17 @@ if (file_exists($lockFile)) {
 
                 // 默认设置
                 $settings = array(
-                    'site_name' => $siteName !== '' ? $siteName : '链讯 CryptoIndex',
-                    'site_desc' => '虚拟货币与区块链资讯聚合索引，自动收录公开 RSS 的标题、摘要与原文链接。',
-                    'site_keywords' => '区块链资讯,虚拟货币,加密货币,行业动态,政策监管',
+                    'site_name' => $siteName !== '' ? $siteName : 'CryptoIndex',
+                    'site_desc' => 'Crypto news aggregator. Full articles are collected from public RSS/Atom feeds and mirrored for reading.',
+                    'site_keywords' => 'crypto news, bitcoin, ethereum, blockchain, markets, regulation',
                     'site_notice' => '',
                     'per_page' => '20',
-                    'disclaimer' => '本站为技术性信息聚合索引工具，仅收录公开 RSS 的标题、摘要与原文链接，不存储、不转载全文，版权归原作者及原媒体所有。本站不提供虚拟货币交易、兑换、理财或投资建议服务，内容不构成任何投资建议；请遵守所在国家或地区关于虚拟货币的相关法律法规。',
+                    'disclaimer' => 'This site aggregates and mirrors full articles from public RSS/Atom feeds for technical indexing purposes. All content remains the property of its original authors and publishers; source attribution and the original URL are retained. This site does not provide trading, exchange, or investment advisory services, and nothing here constitutes investment advice. Please comply with the laws and regulations of your jurisdiction.',
                     'default_interval' => '30',
                     'default_max_items' => '30',
+                    'fulltext_enabled' => '1',
+                    'fulltext_limit' => '30',
+                    'db_schema' => '2',
                     'cron_key' => cn_random_string(32),
                     'market_enabled' => '1',
                     'market_provider' => 'coingecko',
@@ -179,11 +182,11 @@ if (file_exists($lockFile)) {
                 }
                 @file_put_contents($dataDir . '/.htaccess', "<IfModule mod_authz_core.c>\n  Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n  Order allow,deny\n  Deny from all\n</IfModule>\n");
                 @file_put_contents($dataDir . '/index.html', '');
-                @file_put_contents(CN_ROOT . '/install.lock', 'installed at ' . cn_now() . ' version 1.0.0');
+                @file_put_contents(CN_ROOT . '/install.lock', 'installed at ' . cn_now() . ' version 2.0.0');
 
                 $successInfo = array(
                     'admin_url' => 'admin/login.php',
-                    'cron' => '*/15 * * * * /usr/bin/php ' . CN_ROOT . '/cron.php > /dev/null 2>&1',
+                    'cron' => '*/30 * * * * /usr/bin/php ' . CN_ROOT . '/cron.php > /dev/null 2>&1',
                     'prefix' => $prefix,
                     'db' => $dbName,
                 );
@@ -215,7 +218,7 @@ if ($done && !empty($successInfo)) {
     echo '<div class="code">' . inst_h($successInfo['cron']) . '</div>';
     echo '<p style="margin-top:18px"><b>3. 安全收尾</b><br><span class="muted small">删除 <b>install.php</b>；确认 <b>inc/</b>、<b>data/</b> 禁止 Web 直接访问；数据库表前缀为 <b>'
         . inst_h($successInfo['prefix']) . '</b>。</span></p></div>';
-    echo '<div class="panel"><p class="muted small" style="margin:0">合规提醒：本站默认只收录公开 RSS 的标题、摘要与原文链接，请确认所收录来源允许被聚合、遵守其服务条款与 robots.txt，并遵守所在国家或地区关于虚拟货币资讯的法律法规。商用前建议取得内容授权。</p></div>';
+    echo '<div class="panel"><p class="muted small" style="margin:0">合规提醒：本站默认抓取并展示公开 RSS / 原文页的文章全文，请确认所收录来源允许被聚合与全文转载（服务条款 / robots.txt），商用前建议取得内容授权；同时请遵守所在国家或地区关于虚拟货币资讯的法律法规。可在「站点设置」中关闭全文抓取。</p></div>';
 } else {
     echo '<div class="panel"><h3 class="panel-title">环境检查</h3><div class="kv">';
     foreach ($env as $k => $ok) {
@@ -245,7 +248,7 @@ if ($done && !empty($successInfo)) {
         echo '<div class="field"><label>数据库密码</label><input type="password" name="db_pass" value=""></div>';
         echo '</div></div>';
         echo '<div class="panel"><h3 class="panel-title">站点与管理员</h3><div class="form-grid">';
-        echo '<div class="field"><label>站点名称</label><input type="text" name="site_name" value="' . inst_default('site_name', '链讯 CryptoIndex') . '"></div>';
+        echo '<div class="field"><label>站点名称</label><input type="text" name="site_name" value="' . inst_default('site_name', 'CryptoIndex') . '"></div>';
         echo '<div class="field"><label>时区</label><select name="timezone">';
         foreach (array('Asia/Shanghai', 'Asia/Hong_Kong', 'Asia/Taipei', 'Asia/Singapore', 'Asia/Tokyo', 'UTC') as $tz) {
             echo '<option value="' . inst_h($tz) . '"' . (inst_default('timezone', 'Asia/Shanghai') === $tz ? ' selected' : '') . '>' . inst_h($tz) . '</option>';

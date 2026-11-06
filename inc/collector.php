@@ -1,13 +1,15 @@
 <?php
 /**
- * RSS / Atom 采集引擎
+ * RSS / Atom 采集引擎（v2 · 全文版）
  *
  * 设计要点：
- *  1. 只采集「标题 + 摘要 + 原文链接 + 署名」，不存储、不转载全文；
+ *  1. 采集标题、摘要、原文链接、署名，并抓取文章全文（优先 RSS content:encoded，
+ *     缺失时访问原文页提取正文），经白名单清洗后入库供站内阅读；
  *  2. 支持 ETag / Last-Modified 条件请求（304 直接跳过）与失败指数退避，礼貌抓取；
  *  3. URL 规范化后 md5 去重，支持 RSS 2.0 / Atom 1.0 / RDF；
- *  4. 保存来源前做内网地址校验，降低 SSRF 风险；
- *  5. 全部字符串过滤 4 字节 UTF-8 字符，兼容 MySQL 5.5 的 utf8(utf8mb3)。
+ *  4. 采集地址与正文抓取目标均做内网地址校验，降低 SSRF 风险；
+ *  5. 全部字符串过滤 4 字节 UTF-8 字符，兼容 MySQL 5.5 的 utf8(utf8mb3)；
+ *  6. 全文抓取可在后台开关，并限制每个来源每次补齐的篇数，避免压垮来源站点。
  */
 if (!defined('CN_ROOT')) {
     die('Access denied');
@@ -17,18 +19,18 @@ if (!defined('CN_ROOT')) {
 function cn_default_sources()
 {
     return array(
-        array('name' => 'Cointelegraph',    'site_url' => 'https://cointelegraph.com',      'feed_url' => 'https://cointelegraph.com/rss',                                'category' => '综合资讯'),
-        array('name' => 'CoinDesk',          'site_url' => 'https://www.coindesk.com',       'feed_url' => 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml', 'category' => '综合资讯'),
-        array('name' => 'The Block',         'site_url' => 'https://www.theblock.co',        'feed_url' => 'https://www.theblock.co/rss.xml',                             'category' => '行情分析'),
-        array('name' => 'Decrypt',           'site_url' => 'https://decrypt.co',             'feed_url' => 'https://decrypt.co/feed',                                      'category' => '行业动态'),
-        array('name' => 'Bitcoin Magazine',  'site_url' => 'https://bitcoinmagazine.com',    'feed_url' => 'https://bitcoinmagazine.com/.rss/full/',                      'category' => '区块链'),
-        array('name' => 'NewsBTC',           'site_url' => 'https://www.newsbtc.com',        'feed_url' => 'https://www.newsbtc.com/feed/',                                'category' => '行情分析'),
-        array('name' => 'AMBCrypto',         'site_url' => 'https://ambcrypto.com',          'feed_url' => 'https://ambcrypto.com/feed/',                                  'category' => '综合资讯'),
-        array('name' => 'crypto.news',       'site_url' => 'https://crypto.news',            'feed_url' => 'https://crypto.news/feed/',                                    'category' => '综合资讯'),
-        array('name' => 'BeInCrypto',        'site_url' => 'https://beincrypto.com',         'feed_url' => 'https://beincrypto.com/feed/',                                 'category' => '监管政策'),
-        array('name' => 'U.Today',           'site_url' => 'https://u.today',                'feed_url' => 'https://u.today/rss',                                          'category' => '综合资讯'),
-        array('name' => '99Bitcoins',        'site_url' => 'https://99bitcoins.com',         'feed_url' => 'https://99bitcoins.com/feed/',                                 'category' => '区块链'),
-        array('name' => 'Cryptopolitan',     'site_url' => 'https://www.cryptopolitan.com',  'feed_url' => 'https://www.cryptopolitan.com/feed/',                          'category' => '行业动态'),
+        array('name' => 'Cointelegraph',    'site_url' => 'https://cointelegraph.com',      'feed_url' => 'https://cointelegraph.com/rss',                                'category' => 'General'),
+        array('name' => 'CoinDesk',          'site_url' => 'https://www.coindesk.com',       'feed_url' => 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml', 'category' => 'General'),
+        array('name' => 'The Block',         'site_url' => 'https://www.theblock.co',        'feed_url' => 'https://www.theblock.co/rss.xml',                             'category' => 'Markets'),
+        array('name' => 'Decrypt',           'site_url' => 'https://decrypt.co',             'feed_url' => 'https://decrypt.co/feed',                                      'category' => 'Industry'),
+        array('name' => 'Bitcoin Magazine',  'site_url' => 'https://bitcoinmagazine.com',    'feed_url' => 'https://bitcoinmagazine.com/.rss/full/',                      'category' => 'Blockchain'),
+        array('name' => 'NewsBTC',           'site_url' => 'https://www.newsbtc.com',        'feed_url' => 'https://www.newsbtc.com/feed/',                                'category' => 'Markets'),
+        array('name' => 'AMBCrypto',         'site_url' => 'https://ambcrypto.com',          'feed_url' => 'https://ambcrypto.com/feed/',                                  'category' => 'General'),
+        array('name' => 'crypto.news',       'site_url' => 'https://crypto.news',            'feed_url' => 'https://crypto.news/feed/',                                    'category' => 'General'),
+        array('name' => 'BeInCrypto',        'site_url' => 'https://beincrypto.com',         'feed_url' => 'https://beincrypto.com/feed/',                                 'category' => 'Regulation'),
+        array('name' => 'U.Today',           'site_url' => 'https://u.today',                'feed_url' => 'https://u.today/rss',                                          'category' => 'General'),
+        array('name' => '99Bitcoins',        'site_url' => 'https://99bitcoins.com',         'feed_url' => 'https://99bitcoins.com/feed/',                                 'category' => 'Blockchain'),
+        array('name' => 'Cryptopolitan',     'site_url' => 'https://www.cryptopolitan.com',  'feed_url' => 'https://www.cryptopolitan.com/feed/',                          'category' => 'Industry'),
     );
 }
 
@@ -261,20 +263,20 @@ function cn_auto_tags($title, $summary, $extra)
 {
     $text = strtolower($title . ' ' . $summary . ' ' . $extra);
     $map = array(
-        '比特币'   => array('bitcoin', 'btc', 'satoshi', 'halving', 'ordinals'),
-        '以太坊'   => array('ethereum', 'eth ', 'ether ', 'vitalik', 'eip-'),
-        'DeFi'    => array('defi', 'dex ', 'liquidity', 'yield', 'lending', 'uniswap', 'aave', '借贷'),
-        'NFT'     => array('nft', 'opensea', 'collectible', '数字藏品'),
-        '监管政策' => array('sec ', 'regulat', 'lawsuit', 'court ', 'cftc', 'policy', 'ban ', 'legislat', '监管', '法案', '诉讼', '合规'),
-        '稳定币'   => array('stablecoin', 'usdt', 'usdc', 'tether', 'circle '),
-        '交易所'   => array('exchange', 'binance', 'coinbase', 'kraken', 'okx', 'bybit', 'upbit'),
-        '安全事件' => array('hack', 'exploit', 'stolen', 'breach', 'phishing', 'vulnerab', '被盗', '漏洞', '攻击'),
-        'Layer2'  => array('layer 2', 'layer2', 'rollup', 'arbitrum', 'optimism', 'zksync', 'starknet'),
-        '挖矿'    => array('mining', 'miner', 'hashrate', '算力', '矿机'),
-        'ETF'     => array('etf', 'spot bitcoin', 'inflow', 'outflow'),
-        'Web3'    => array('web3', 'metaverse', 'gamefi', 'dao ', 'tokeniz'),
-        'AI'      => array('artificial intelligence', 'ai ', '人工智能'),
-        '行情'    => array('price ', 'rally', 'surge', 'plunge', 'bull ', 'bear ', 'all-time high', '跌破', '涨幅'),
+        'Bitcoin'    => array('bitcoin', 'btc', 'satoshi', 'halving', 'ordinals', '比特币'),
+        'Ethereum'   => array('ethereum', 'eth ', 'ether ', 'vitalik', 'eip-', '以太坊'),
+        'DeFi'       => array('defi', 'dex ', 'liquidity', 'yield', 'lending', 'uniswap', 'aave', '借贷'),
+        'NFT'        => array('nft', 'opensea', 'collectible', '数字藏品'),
+        'Regulation' => array('sec ', 'regulat', 'lawsuit', 'court ', 'cftc', 'policy', 'ban ', 'legislat', '监管', '法案', '诉讼', '合规'),
+        'Stablecoin' => array('stablecoin', 'usdt', 'usdc', 'tether', 'circle ', '稳定币'),
+        'Exchange'   => array('exchange', 'binance', 'coinbase', 'kraken', 'okx', 'bybit', 'upbit', '交易所'),
+        'Security'   => array('hack', 'exploit', 'stolen', 'breach', 'phishing', 'vulnerab', '被盗', '漏洞', '攻击'),
+        'Layer2'     => array('layer 2', 'layer2', 'rollup', 'arbitrum', 'optimism', 'zksync', 'starknet'),
+        'Mining'     => array('mining', 'miner', 'hashrate', '算力', '矿机'),
+        'ETF'        => array('etf', 'spot bitcoin', 'inflow', 'outflow'),
+        'Web3'       => array('web3', 'metaverse', 'gamefi', 'dao ', 'tokeniz'),
+        'AI'         => array('artificial intelligence', 'ai ', '人工智能'),
+        'Markets'    => array('price ', 'rally', 'surge', 'plunge', 'bull ', 'bear ', 'all-time high', '跌破', '涨幅', '行情'),
     );
     $tags = array();
     foreach ($map as $tag => $words) {
@@ -296,12 +298,12 @@ function cn_guess_category($text, $default)
 {
     $text = strtolower($text);
     $rules = array(
-        '监管政策' => array('sec ', 'regulat', 'lawsuit', 'court', 'cftc', 'ban ', 'policy', '监管', '法案', '合规'),
-        '安全事件' => array('hack', 'exploit', 'stolen', 'breach', 'phishing', '被盗', '漏洞', '攻击'),
-        '行情分析' => array('price ', 'rally', 'surge', 'plunge', 'bull ', 'bear ', 'bitcoin drops', 'ethereum price', '涨', '跌'),
-        '技术生态' => array('upgrade', 'mainnet', 'testnet', 'developer', 'protocol', 'rollup', 'github', 'eip-', '升级'),
-        '区块链'   => array('blockchain', 'bitcoin', 'ethereum', 'node', 'consensus', '链上'),
-        '行业动态' => array('raises', 'funding', 'acquir', 'partnership', 'launch', '融资', '收购'),
+        'Regulation' => array('sec ', 'regulat', 'lawsuit', 'court', 'cftc', 'ban ', 'policy', '监管', '法案', '合规'),
+        'Security'   => array('hack', 'exploit', 'stolen', 'breach', 'phishing', '被盗', '漏洞', '攻击'),
+        'Markets'    => array('price ', 'rally', 'surge', 'plunge', 'bull ', 'bear ', 'bitcoin drops', 'ethereum price', '涨', '跌'),
+        'Technology' => array('upgrade', 'mainnet', 'testnet', 'developer', 'protocol', 'rollup', 'github', 'eip-', '升级'),
+        'Blockchain' => array('blockchain', 'bitcoin', 'ethereum', 'node', 'consensus', '链上'),
+        'Industry'   => array('raises', 'funding', 'acquir', 'partnership', 'launch', '融资', '收购'),
     );
     foreach ($rules as $cat => $words) {
         foreach ($words as $w) {
@@ -376,8 +378,12 @@ function cn_parse_feed($xml, $feedUrl)
             continue;
         }
 
-        $rawSummary = cn_xml_text($node, array('description', 'encoded', 'summary', 'content'));
-        $summary = cn_clean_text($rawSummary, 400);
+        // 摘要优先取 description / summary；全文优先取 content:encoded / Atom content
+        $rawSummary = cn_xml_text($node, array('description', 'summary', 'encoded', 'content'));
+        $rawContent = cn_xml_text($node, array('encoded', 'content', 'description', 'summary'));
+        $summary = cn_clean_text($rawSummary !== '' ? $rawSummary : $rawContent, 400);
+        // Atom 的 content type="html" 常把标签转义，需还原成 HTML 再交给清洗器
+        $contentHtml = html_entity_decode((string) $rawContent, ENT_QUOTES, 'UTF-8');
 
         // 缩略图：media:* / enclosure / 正文第一张图
         $thumb = '';
@@ -405,8 +411,19 @@ function cn_parse_feed($xml, $feedUrl)
                 }
             }
         }
-        if ($thumb === '' && preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $rawSummary, $m)) {
-            $thumb = html_entity_decode($m[1], ENT_QUOTES, 'UTF-8');
+        if ($thumb === '') {
+            $imgSrc = '';
+            if ($contentHtml !== '' && preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $contentHtml, $m)) {
+                $imgSrc = html_entity_decode($m[1], ENT_QUOTES, 'UTF-8');
+            } elseif ($rawSummary !== '' && preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $rawSummary, $m)) {
+                $imgSrc = html_entity_decode($m[1], ENT_QUOTES, 'UTF-8');
+            }
+            if ($imgSrc !== '') {
+                $abs = cn_normalize_url($imgSrc, $link);
+                if ($abs !== '') {
+                    $thumb = $abs;
+                }
+            }
         }
 
         // 作者：dc:creator / author / Atom 的 author>name
@@ -435,14 +452,15 @@ function cn_parse_feed($xml, $feedUrl)
         $catText = implode(' ', $cats);
 
         $out[] = array(
-            'title'       => $title,
-            'url'         => $link,
-            'summary'     => $summary,
-            'thumb'       => $thumb,
-            'author'      => $author,
-            'categories'  => $catText,
-            'published_at'=> date('Y-m-d H:i:s', $ts),
-            'tags'        => cn_auto_tags($title, $summary, $catText),
+            'title'        => $title,
+            'url'          => $link,
+            'summary'      => $summary,
+            'content_html' => $contentHtml,
+            'thumb'        => $thumb,
+            'author'       => $author,
+            'categories'   => $catText,
+            'published_at' => date('Y-m-d H:i:s', $ts),
+            'tags'         => cn_auto_tags($title, $summary, $catText),
         );
     }
     return $out;
@@ -479,7 +497,8 @@ function cn_collect_source($source, $options = array())
     $force = !empty($options['force']);
     $r = array(
         'id' => intval($source['id']), 'name' => $source['name'],
-        'status' => 'ok', 'fetched' => 0, 'added' => 0, 'message' => '', 'skipped' => false,
+        'status' => 'ok', 'fetched' => 0, 'added' => 0, 'fulltext' => 0,
+        'message' => '', 'skipped' => false,
     );
 
     // 礼貌抓取：未到间隔则跳过；连续失败时按 2^n 退避（最长 8 倍）
@@ -550,11 +569,18 @@ function cn_collect_source($source, $options = array())
     $items = array_slice($items, 0, $maxItems);
     $r['fetched'] = count($items);
 
+    // v1 老库若因权限限制未能自动补列，则自动降级为不带全文字段的插入
+    $hasFulltext = cn_has_fulltext_column();
     $sql = 'INSERT IGNORE INTO ' . cn_table('articles')
-        . ' (source_id, source_name, title, url, url_hash, summary, thumb, author, category, tags, published_at, created_at, status)'
-        . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1)';
-    $defaultCategory = $source['category'] !== '' ? $source['category'] : '综合资讯';
+        . ' (source_id, source_name, title, url, url_hash, summary, '
+        . ($hasFulltext ? 'content, content_fetched, ' : '')
+        . 'thumb, author, category, tags, published_at, created_at, status)'
+        . ' VALUES (?,?,?,?,?,?,'
+        . ($hasFulltext ? '?,?,' : '')
+        . '?,?,?,?,?,?,1)';
+    $defaultCategory = $source['category'] !== '' ? $source['category'] : 'General';
 
+    $newItems = array();
     foreach ($items as $it) {
         $params = array(
             intval($source['id']),
@@ -563,18 +589,85 @@ function cn_collect_source($source, $options = array())
             cn_s($it['url'], 480),
             md5($it['url']),
             cn_s($it['summary'], 400),
-            cn_s($it['thumb'], 480),
-            cn_s($it['author'], 90),
-            cn_s(cn_guess_category($it['title'] . ' ' . $it['summary'] . ' ' . $it['categories'], $defaultCategory), 50),
-            cn_s($it['tags'], 250),
-            $it['published_at'],
-            cn_now(),
         );
+        if ($hasFulltext) {
+            $params[] = '';
+            $params[] = 0;
+        }
+        $params[] = cn_s($it['thumb'], 480);
+        $params[] = cn_s($it['author'], 90);
+        $params[] = cn_s(cn_guess_category($it['title'] . ' ' . $it['summary'] . ' ' . $it['categories'], $defaultCategory), 50);
+        $params[] = cn_s($it['tags'], 250);
+        $params[] = $it['published_at'];
+        $params[] = cn_now();
         try {
-            $r['added'] += cn_db_exec($sql, $params);
+            $affected = cn_db_exec($sql, $params);
+            if ($affected > 0) {
+                $r['added']++;
+                if ($hasFulltext) {
+                    $newItems[] = array(
+                        'id' => intval(cn_db_last_id()),
+                        'url' => $it['url'],
+                        'summary' => $it['summary'],
+                        'content_html' => isset($it['content_html']) ? $it['content_html'] : '',
+                    );
+                }
+            }
         } catch (Exception $e) {
             // 单条异常不影响整批采集
             $r['message'] = '部分条目写入失败：' . cn_s($e->getMessage(), 200);
+        }
+    }
+
+    // 全文补齐：本轮新条目优先，额度未满时顺带补抓历史「待补」条目
+    // （否则超过每源限量的文章会永远停留在无全文状态）
+    $fullEnabled = cn_setting('fulltext_enabled', '1') === '1';
+    $fullLimit = max(0, min(50, intval(cn_setting('fulltext_limit', '30'))));
+    if ($hasFulltext && $fullEnabled && $fullLimit > 0) {
+        $batch = array_slice($newItems, 0, $fullLimit);
+        if (count($batch) < $fullLimit) {
+            $need = $fullLimit - count($batch);
+            $feedByUrl = array();
+            foreach ($items as $fi) {
+                $feedByUrl[$fi['url']] = $fi;
+            }
+            // 排除本轮刚插入的条目，避免同一篇文章被抓两次、统计虚高
+            $newIds = array();
+            foreach ($newItems as $ni) {
+                $newIds[] = intval($ni['id']);
+            }
+            $exclude = empty($newIds) ? '' : ' AND id NOT IN (' . implode(',', $newIds) . ')';
+            $pending = cn_db_all('SELECT id, url, summary FROM ' . cn_table('articles')
+                . ' WHERE source_id = ? AND content_fetched = 0 AND (content IS NULL OR content = \'\')'
+                . $exclude . ' ORDER BY id ASC LIMIT ' . intval($need),
+                array(intval($source['id'])));
+            foreach ($pending as $p) {
+                $fi = isset($feedByUrl[$p['url']]) ? $feedByUrl[$p['url']] : array();
+                $batch[] = array(
+                    'id' => intval($p['id']),
+                    'url' => $p['url'],
+                    'summary' => $p['summary'],
+                    'content_html' => isset($fi['content_html']) ? $fi['content_html'] : '',
+                );
+            }
+        }
+        if (!empty($batch)) {
+            try {
+                $full = cn_fulltext_collect($batch, $fullLimit);
+                foreach ($batch as $i => $row) {
+                    if (!isset($full[$i]) || $full[$i]['status'] === 0) {
+                        continue;
+                    }
+                    cn_db_exec('UPDATE ' . cn_table('articles')
+                        . ' SET content = ?, content_fetched = ? WHERE id = ?',
+                        array($full[$i]['content'], intval($full[$i]['status']), intval($row['id'])));
+                    if ($full[$i]['status'] === 1) {
+                        $r['fulltext']++;
+                    }
+                }
+            } catch (Exception $e) {
+                // 全文属于增值内容，异常不影响已入库的资讯
+            }
         }
     }
 
@@ -583,7 +676,7 @@ function cn_collect_source($source, $options = array())
         'etag' => cn_s($resp['etag'], 250),
         'last_modified' => cn_s($resp['last_modified'], 250),
         'last_status' => 'ok',
-        'last_message' => '抓取 ' . $r['fetched'] . ' 条，新增 ' . $r['added'] . ' 条',
+        'last_message' => '抓取 ' . $r['fetched'] . ' 条，新增 ' . $r['added'] . ' 条，全文 ' . $r['fulltext'] . ' 篇',
         'fail_count' => 0,
         'total_items' => intval($source['total_items']) + $r['added'],
     );
@@ -598,7 +691,7 @@ function cn_collect_all($options = array())
 {
     $sources = cn_db_all('SELECT * FROM ' . cn_table('sources') . ' WHERE enabled = 1 ORDER BY id ASC');
     $summary = array(
-        'sources' => count($sources), 'fetched' => 0, 'added' => 0,
+        'sources' => count($sources), 'fetched' => 0, 'added' => 0, 'fulltext' => 0,
         'failed' => 0, 'skipped' => 0, 'details' => array(),
     );
     foreach ($sources as $s) {
@@ -606,6 +699,7 @@ function cn_collect_all($options = array())
         $summary['details'][] = $r;
         $summary['fetched'] += $r['fetched'];
         $summary['added'] += $r['added'];
+        $summary['fulltext'] += $r['fulltext'];
         if ($r['skipped']) {
             $summary['skipped']++;
         } elseif ($r['status'] === 'error') {

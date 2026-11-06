@@ -3,7 +3,7 @@
  * 应用引导文件：所有前台 / 后台 / 命令行入口都应先引入本文件
  */
 define('CN_ROOT', dirname(dirname(__FILE__)));
-define('CN_VERSION', '1.0.0');
+define('CN_VERSION', '2.0.0');
 
 require_once CN_ROOT . '/inc/functions.php';
 
@@ -17,8 +17,10 @@ if (!file_exists($cn_config_file)) {
 }
 
 require_once CN_ROOT . '/inc/db.php';
+require_once CN_ROOT . '/inc/fulltext.php';
 require_once CN_ROOT . '/inc/collector.php';
 require_once CN_ROOT . '/inc/market.php';
+require_once CN_ROOT . '/inc/migrate.php';
 
 $cn_timezone = cn_config('timezone', 'Asia/Shanghai');
 if (in_array($cn_timezone, timezone_identifiers_list())) {
@@ -32,6 +34,9 @@ if (function_exists('mb_internal_encoding')) {
 if (session_id() === '') {
     @session_start();
 }
+
+// 老版本覆盖升级后，首次请求自动补列并迁移中文栏目/标签/默认文案
+cn_schema_upgrade();
 
 // 兼容极老版本 PHP（<=5.3）的魔术引号，PHP 5.4+ 不会进入此分支
 if (function_exists('get_magic_quotes_gpc') && @get_magic_quotes_gpc()) {

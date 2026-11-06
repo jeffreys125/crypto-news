@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $name = trim(isset($_POST['name']) ? (string) $_POST['name'] : '');
         $feedUrl = trim(isset($_POST['feed_url']) ? (string) $_POST['feed_url'] : '');
         $siteUrl = trim(isset($_POST['site_url']) ? (string) $_POST['site_url'] : '');
-        $category = isset($_POST['category']) ? (string) $_POST['category'] : '综合资讯';
+        $category = isset($_POST['category']) ? (string) $_POST['category'] : 'General';
         $enabled = isset($_POST['enabled']) ? 1 : 0;
         $interval = max(5, min(1440, intval(isset($_POST['interval_min']) ? $_POST['interval_min'] : 30)));
         $maxItems = max(1, min(100, intval(isset($_POST['max_items']) ? $_POST['max_items'] : 30)));
@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = '来源名称与 RSS 地址不能为空';
         }
         if (!in_array($category, cn_categories())) {
-            $category = '综合资讯';
+            $category = 'General';
         }
         $valid = cn_validate_feed_url($feedUrl);
         if (!$valid[0]) {
@@ -97,7 +97,7 @@ echo '<div class="form-grid">';
 $vName = $edit ? $edit['name'] : (isset($_POST['name']) ? $_POST['name'] : '');
 $vFeed = $edit ? $edit['feed_url'] : (isset($_POST['feed_url']) ? $_POST['feed_url'] : '');
 $vSite = $edit ? $edit['site_url'] : (isset($_POST['site_url']) ? $_POST['site_url'] : '');
-$vCat = $edit ? $edit['category'] : '综合资讯';
+$vCat = $edit ? $edit['category'] : 'General';
 $vInt = $edit ? $edit['interval_min'] : cn_setting('default_interval', '30');
 $vMax = $edit ? $edit['max_items'] : cn_setting('default_max_items', '30');
 echo '<div class="field"><label><span class="req">*</span> 来源名称</label><input type="text" name="name" value="' . h($vName) . '" required placeholder="例如 Cointelegraph"></div>';
@@ -114,7 +114,7 @@ echo '<div class="field"><label>每次最多抓取条数（1-100）</label><inpu
 echo '<div class="field"><label>启用状态</label><label style="display:inline-flex;align-items:center;gap:6px;color:var(--text);margin-top:8px">'
     . '<input type="checkbox" name="enabled" value="1"' . ((!$edit || $edit['enabled']) ? ' checked' : '') . '> 启用该来源</label></div>';
 echo '</div><div class="form-actions"><button class="btn btn-primary" type="submit">' . ($edit ? '保存修改' : '添加来源') . '</button>'
-    . '<span class="dim small">仅采集标题、摘要与原文链接；请确认来源允许被聚合收录</span></div></form></div>';
+    . '<span class="dim small">会抓取 RSS 全文（或原文页正文），请确认来源的服务条款与 robots.txt 允许被聚合收录</span></div></form></div>';
 
 echo '<div class="panel panel-tight"><div class="panel-head" style="padding:16px 18px 0"><h3>已配置来源（' . count($sources) . '）</h3>'
     . '<form method="post" action="sources.php" style="display:inline" onsubmit="return confirm(\'补回所有预置来源？\')">'

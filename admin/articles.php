@@ -74,9 +74,9 @@ echo '<span class="dim small" style="margin-left:auto">共 ' . $total . ' 条</s
 
 echo '<div class="table-wrap"><table class="data"><thead><tr>'
     . '<th style="width:28px"><input type="checkbox" id="checkAll"></th><th style="width:52px">ID</th><th>标题</th>'
-    . '<th>来源</th><th>栏目</th><th>发布时间</th><th>浏览</th><th>标记</th><th>操作</th></tr></thead><tbody>';
+    . '<th>来源</th><th>栏目</th><th>发布时间</th><th>浏览</th><th>全文</th><th>标记</th><th>操作</th></tr></thead><tbody>';
 if (empty($rows)) {
-    echo '<tr><td colspan="9" class="empty">暂无资讯</td></tr>';
+    echo '<tr><td colspan="10" class="empty">暂无资讯</td></tr>';
 }
 foreach ($rows as $r) {
     echo '<tr><td><input type="checkbox" form="batchForm" name="ids[]" value="' . intval($r['id']) . '"></td>';
@@ -85,6 +85,11 @@ foreach ($rows as $r) {
         . h(cn_cut($r['title'], 54)) . '</a></td>';
     echo '<td class="muted nowrap">' . h($r['source_name']) . '</td><td class="muted nowrap">' . h($r['category']) . '</td>';
     echo '<td class="dim small nowrap">' . h($r['published_at']) . '</td><td class="dim">' . intval($r['views']) . '</td>';
+    $ft = isset($r['content_fetched']) ? intval($r['content_fetched']) : -1;
+    $ftLabel = $ft === 1 ? '<span class="badge badge-ok">全文</span>'
+        : ($ft === 2 ? '<span class="badge badge-muted">摘要</span>'
+            : ($ft === 0 ? '<span class="dim small">待补</span>' : '<span class="dim small">—</span>'));
+    echo '<td class="nowrap">' . $ftLabel . '</td>';
     echo '<td class="nowrap">' . ($r['is_top'] ? '<span class="badge badge-warn">置顶</span> ' : '')
         . ($r['is_recommend'] ? '<span class="badge badge-ok">推荐</span>' : '') . '</td><td class="actions">';
     echo '<form class="inline-form" method="post" action="articles.php">' . cn_csrf_field()

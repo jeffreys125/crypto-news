@@ -2,8 +2,8 @@
 /**
  * 定时采集入口
  *
- * 方式一（推荐，crontab，每 15 分钟执行一次）：
- *   0,15,30,45 * * * * /usr/bin/php /path/to/crypto-news/cron.php > /dev/null 2>&1
+ * 方式一（推荐，crontab；开启全文抓取后建议每 30 分钟一次）：
+ *   0,30 * * * * /usr/bin/php /path/to/crypto-news/cron.php > /dev/null 2>&1
  *   追加 --force 可忽略来源间隔（调试用）
  *
  * 方式二（无 crontab 权限时，由外部监控定时访问）：
@@ -41,10 +41,12 @@ $summary = cn_collect_all(array('force' => $force));
 
 echo "[" . cn_now() . "] CryptoIndex 采集完成 | 来源 " . $summary['sources']
     . " | 抓取 " . $summary['fetched'] . " | 新增 " . $summary['added']
+    . " | 全文 " . $summary['fulltext']
     . " | 失败 " . $summary['failed'] . " | 跳过 " . $summary['skipped'] . "\n";
 foreach ($summary['details'] as $d) {
     echo "  - " . $d['name'] . " : " . ($d['skipped'] ? 'SKIP' : strtoupper($d['status']))
-        . " fetch=" . $d['fetched'] . " added=" . $d['added'] . " " . $d['message'] . "\n";
+        . " fetch=" . $d['fetched'] . " added=" . $d['added']
+        . " fulltext=" . (isset($d['fulltext']) ? $d['fulltext'] : 0) . " " . $d['message'] . "\n";
 }
 
 if (is_resource($lock)) {

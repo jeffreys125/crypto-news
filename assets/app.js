@@ -1,8 +1,8 @@
-/* 前台轻量交互：图片降级 + 返回顶部 */
+/* Front-end interactions: broken-image fallback + back-to-top */
 (function () {
   'use strict';
 
-  // 外链缩略图可能被防盗链或失效，加载失败时隐藏容器，避免出现破图
+  // Remote images may be hotlink-protected or expire; hide them instead of showing a broken icon
   function hideBrokenImages() {
     var imgs = document.querySelectorAll('img');
     for (var i = 0; i < imgs.length; i++) {

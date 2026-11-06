@@ -4,14 +4,16 @@ require_once dirname(dirname(__FILE__)) . '/admin/_inc.php';
 cn_admin_auth();
 
 $defaults = array(
-    'site_name' => '链讯 CryptoIndex',
-    'site_desc' => '虚拟货币与区块链资讯聚合索引，自动收录公开 RSS 的标题、摘要与原文链接。',
-    'site_keywords' => '区块链资讯,虚拟货币,加密货币,行业动态,政策监管',
+    'site_name' => 'CryptoIndex',
+    'site_desc' => 'Crypto news aggregator. Full articles are collected from public RSS/Atom feeds and mirrored for reading.',
+    'site_keywords' => 'crypto news, bitcoin, ethereum, blockchain, markets, regulation',
     'site_notice' => '',
     'per_page' => '20',
-    'disclaimer' => '本站为技术性信息聚合索引工具，仅收录公开 RSS 的标题、摘要与原文链接，不存储、不转载全文，版权归原作者及原媒体所有。本站不提供虚拟货币交易、兑换、理财或投资建议服务，内容不构成任何投资建议；请遵守所在国家或地区关于虚拟货币的相关法律法规。',
+    'disclaimer' => 'This site aggregates and mirrors full articles from public RSS/Atom feeds for technical indexing purposes. All content remains the property of its original authors and publishers; source attribution and the original URL are retained. This site does not provide trading, exchange, or investment advisory services, and nothing here constitutes investment advice. Please comply with the laws and regulations of your jurisdiction.',
     'default_interval' => '30',
     'default_max_items' => '30',
+    'fulltext_enabled' => '1',
+    'fulltext_limit' => '30',
     'market_enabled' => '1',
     'market_provider' => 'coingecko',
     'market_api' => '',
@@ -39,6 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         cn_set_setting('per_page', max(5, min(50, intval(isset($_POST['per_page']) ? $_POST['per_page'] : 20))));
         cn_set_setting('default_interval', max(5, min(1440, intval(isset($_POST['default_interval']) ? $_POST['default_interval'] : 30))));
         cn_set_setting('default_max_items', max(1, min(100, intval(isset($_POST['default_max_items']) ? $_POST['default_max_items'] : 30))));
+        cn_set_setting('fulltext_enabled', isset($_POST['fulltext_enabled']) ? '1' : '0');
+        cn_set_setting('fulltext_limit', max(0, min(50, intval(isset($_POST['fulltext_limit']) ? $_POST['fulltext_limit'] : 30))));
         cn_set_setting('market_enabled', isset($_POST['market_enabled']) ? '1' : '0');
         cn_admin_flash('设置已保存');
         cn_redirect('settings.php');
@@ -83,13 +87,22 @@ echo '<div class="field full"><label>站点描述（SEO）</label><textarea name
 echo '<div class="field full"><label>关键词（SEO，逗号分隔）</label><input type="text" name="site_keywords" value="' . h($current['site_keywords']) . '"></div>';
 echo '<div class="field full"><label>首页公告（留空则不显示）</label><textarea name="site_notice" style="min-height:56px">' . h($current['site_notice']) . '</textarea></div>';
 echo '<div class="field full"><label>底部合规与免责声明</label><textarea name="disclaimer" style="min-height:100px">' . h($current['disclaimer']) . '</textarea>'
-    . '<div class="help">建议保留原始声明：说明仅收录摘要、不构成投资建议、不提供交易服务，并提示遵守所在地法规。</div></div>';
+    . '<div class="help">建议保留：说明全文转载自公开 RSS、版权归原作者、不构成投资建议、不提供交易服务，并提示遵守所在地法规。</div></div>';
+echo '</div></div>';
+
+echo '<h2>全文抓取</h2><div class="panel"><div class="form-grid">';
+echo '<div class="field"><label>抓取并展示文章全文</label><label style="display:inline-flex;align-items:center;gap:6px;color:var(--text);margin-top:8px">'
+    . '<input type="checkbox" name="fulltext_enabled" value="1"' . ($current['fulltext_enabled'] === '1' ? ' checked' : '') . '> 启用全文采集</label>'
+    . '<div class="help">优先使用 RSS 的 content:encoded；没有全文时访问原文页提取正文，经白名单清洗后入库。关闭后仅显示摘要。</div></div>';
+echo '<div class="field"><label>每个来源每次最多补齐全文篇数（0-50）</label>'
+    . '<input type="number" name="fulltext_limit" value="' . intval($current['fulltext_limit']) . '" min="0" max="50">'
+    . '<div class="help">优先抓本轮新入库文章，额度有剩余时自动补抓历史「待补」文章；每批 8 个并发。填 0 表示暂停全文抓取；数值越小对来源站点压力越小。</div></div>';
 echo '</div></div>';
 
 echo '<h2>采集参数</h2><div class="panel"><div class="form-grid">';
 echo '<div class="field"><label>新增来源的默认间隔（分钟）</label><input type="number" name="default_interval" value="' . intval($current['default_interval']) . '" min="5" max="1440"></div>';
 echo '<div class="field"><label>新增来源的默认抓取上限</label><input type="number" name="default_max_items" value="' . intval($current['default_max_items']) . '" min="1" max="100"></div>';
-echo '</div><p class="dim small" style="margin:12px 0 0">单个来源可在「资讯来源」中单独覆盖这两个值。程序使用 ETag 条件请求与失败退避，不会对来源造成频繁压力。</p></div>';
+echo '</div><p class="dim small" style="margin:12px 0 0">单个来源可在「资讯来源」中单独覆盖这两个值。开启全文抓取后建议间隔不低于 30 分钟；程序使用 ETag 条件请求与失败退避，并限制每次补全文的篇数。</p></div>';
 
 echo '<h2>行情模块（可选）</h2><div class="panel"><div class="form-grid">';
 echo '<div class="field"><label>启用行情条</label><label style="display:inline-flex;align-items:center;gap:6px;color:var(--text);margin-top:8px">'

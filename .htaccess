@@ -1,8 +1,8 @@
-# CryptoIndex Apache 配置（可选；Nginx 请参考 README）
+# CryptoIndex Apache config (optional; see README for Nginx)
 Options -Indexes
 DirectoryIndex index.php
 
-# 保护配置、锁文件、日志与安装脚本（安装完成后建议直接删除 install.php）
+# Protect config, lock files, logs and the installer (delete install.php after setup)
 <FilesMatch "^(config\.php|config\.sample\.php|.*\.lock|.*\.log)$">
   <IfModule mod_authz_core.c>
     Require all denied
@@ -13,7 +13,7 @@ DirectoryIndex index.php
   </IfModule>
 </FilesMatch>
 
-# 伪静态（可选，站点默认使用 query string 形式，无需开启也能正常运行）
+# Optional pretty URLs (the site works with plain query strings too)
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteRule ^article/([0-9]+)\.html$ article.php?id=$1 [L,QSA]

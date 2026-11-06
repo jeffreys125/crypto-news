@@ -28,7 +28,7 @@ function cn_config($key = null, $default = null)
 }
 
 /** 友好错误页 */
-function cn_fatal($message, $title = '站点暂时不可用')
+function cn_fatal($message, $title = 'Site temporarily unavailable')
 {
     if (PHP_SAPI !== 'cli' && !headers_sent()) {
         header('Content-Type: text/html; charset=utf-8');
@@ -40,12 +40,12 @@ function cn_fatal($message, $title = '站点暂时不可用')
     }
     $msg = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
     $ttl = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
-    echo '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>' . $ttl . '</title>'
-        . '<style>body{margin:0;padding:60px 20px;background:#0b0f1a;color:#dbe4f5;font:15px/1.8 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}'
+    echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>' . $ttl . '</title>'
+        . '<style>body{margin:0;padding:60px 20px;background:#0b0f1a;color:#dbe4f5;font:15px/1.8 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}'
         . '.box{max-width:640px;margin:0 auto;background:#131c30;border:1px solid #23304d;border-radius:12px;padding:32px}'
         . 'h1{font-size:20px;margin:0 0 16px;color:#7aa2ff}p{margin:0 0 10px}code{color:#f0b90b;word-break:break-all}</style></head>'
         . '<body><div class="box"><h1>' . $ttl . '</h1><p>' . $msg . '</p>'
-        . '<p style="color:#7d8aa5;margin-top:20px">如尚未安装，请先访问 <code>install.php</code> 完成安装向导。</p>'
+        . '<p style="color:#7d8aa5;margin-top:20px">If the site has not been installed yet, please open <code>install.php</code> first.</p>'
         . '</div></body></html>';
     exit;
 }
@@ -183,7 +183,7 @@ function cn_clean_text($html, $limit = 0)
     return cn_strip_4byte($text);
 }
 
-/** 中文相对时间 */
+/** English relative time */
 function cn_time_ago($datetime)
 {
     $ts = is_numeric($datetime) ? intval($datetime) : strtotime($datetime);
@@ -195,24 +195,27 @@ function cn_time_ago($datetime)
         $diff = 0;
     }
     if ($diff < 60) {
-        return '刚刚';
+        return 'just now';
     }
     if ($diff < 3600) {
-        return floor($diff / 60) . ' 分钟前';
+        $n = floor($diff / 60);
+        return $n . ' minute' . ($n > 1 ? 's' : '') . ' ago';
     }
     if ($diff < 86400) {
-        return floor($diff / 3600) . ' 小时前';
+        $n = floor($diff / 3600);
+        return $n . ' hour' . ($n > 1 ? 's' : '') . ' ago';
     }
     if ($diff < 86400 * 7) {
-        return floor($diff / 86400) . ' 天前';
+        $n = floor($diff / 86400);
+        return $n . ' day' . ($n > 1 ? 's' : '') . ' ago';
     }
-    return date('Y-m-d', $ts);
+    return date('M j, Y', $ts);
 }
 
-/** 固定分类 */
+/** Fixed category list (English, matches the stored category values) */
 function cn_categories()
 {
-    return array('综合资讯', '行情分析', '区块链', '监管政策', '技术生态', '安全事件', '行业动态');
+    return array('General', 'Markets', 'Blockchain', 'Regulation', 'Technology', 'Security', 'Industry');
 }
 
 /** 随机字符串 */
@@ -327,9 +330,9 @@ function cn_pagination($total, $page, $perPage, $baseUrl)
     }
     $page = max(1, min($page, $pages));
     $sep = (strpos($baseUrl, '?') === false) ? '?' : '&amp;';
-    $html = '<nav class="pagination" aria-label="分页">';
+    $html = '<nav class="pagination" aria-label="Pagination">';
     if ($page > 1) {
-        $html .= '<a href="' . $baseUrl . $sep . 'page=' . ($page - 1) . '" class="page-btn">&laquo; 上一页</a>';
+        $html .= '<a href="' . $baseUrl . $sep . 'page=' . ($page - 1) . '" class="page-btn">&laquo; Previous</a>';
     }
     $start = max(1, $page - 2);
     $end = min($pages, $page + 2);
@@ -347,7 +350,7 @@ function cn_pagination($total, $page, $perPage, $baseUrl)
         $html .= '<span class="page-dots">…</span><a href="' . $baseUrl . $sep . 'page=' . $pages . '" class="page-btn">' . $pages . '</a>';
     }
     if ($page < $pages) {
-        $html .= '<a href="' . $baseUrl . $sep . 'page=' . ($page + 1) . '" class="page-btn">下一页 &raquo;</a>';
+        $html .= '<a href="' . $baseUrl . $sep . 'page=' . ($page + 1) . '" class="page-btn">Next &raquo;</a>';
     }
     $html .= '</nav>';
     return $html;

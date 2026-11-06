@@ -52,7 +52,7 @@ function cn_admin_menu()
 
 function cn_admin_head($title, $active = 'index')
 {
-    $site = cn_setting('site_name', '链讯 CryptoIndex');
+    $site = cn_setting('site_name', 'CryptoIndex');
     echo '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">' . "\n";
     echo '<meta name="viewport" content="width=device-width, initial-scale=1">' . "\n";
     echo '<meta name="robots" content="noindex,nofollow">' . "\n";

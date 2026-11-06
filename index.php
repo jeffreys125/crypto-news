@@ -1,5 +1,5 @@
 <?php
-/** 首页 / 分类列表 */
+/** Home / category listing */
 require_once dirname(__FILE__) . '/inc/bootstrap.php';
 require_once CN_ROOT . '/inc/template.php';
 
@@ -28,15 +28,15 @@ $sql = 'SELECT * FROM ' . cn_table('articles') . ' WHERE ' . $where
     . ' ORDER BY is_top DESC, published_at DESC, id DESC LIMIT ' . $perPage . ' OFFSET ' . $offset;
 $rows = cn_db_all($sql, $params);
 
-$pageTitle = $cat !== '' ? $cat : '最新资讯';
+$pageTitle = $cat !== '' ? $cat : 'Latest News';
 cn_head($cat !== '' ? $cat : '', cn_setting('site_desc', ''), '', $cat);
 echo '<section class="main">' . "\n";
 echo '<div class="page-head"><h1>' . h($pageTitle) . '</h1>'
-    . '<span class="sub">共 ' . $total . ' 条 · 第 ' . $page . '/' . $totalPages . ' 页 · 自动采集更新</span></div>' . "\n";
+    . '<span class="sub">' . $total . ' articles &middot; Page ' . $page . ' of ' . $totalPages . ' &middot; Auto-updated</span></div>' . "\n";
 
 if (empty($rows)) {
-    echo '<div class="empty-state"><div class="big">◇</div><p>还没有采集到资讯</p>'
-        . '<p style="font-size:13px">请进入 <a href="' . cn_url('admin') . '">管理后台</a> 执行一次采集，或配置定时任务是自动采集。</p></div>';
+    echo '<div class="empty-state"><div class="big">&#9671;</div><p>No articles have been collected yet</p>'
+        . '<p style="font-size:13px">Open the <a href="' . cn_url('admin') . '">admin panel</a> to run a collection, or set up the cron job for automatic updates.</p></div>';
 } else {
     echo '<div class="article-list">' . "\n";
     foreach ($rows as $row) {

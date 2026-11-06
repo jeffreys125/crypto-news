@@ -1,5 +1,5 @@
 <?php
-/** 资讯搜索 */
+/** Article search */
 require_once dirname(__FILE__) . '/inc/bootstrap.php';
 require_once CN_ROOT . '/inc/template.php';
 
@@ -11,7 +11,7 @@ $perPage = max(5, min(50, intval(cn_setting('per_page', '20'))));
 $total = 0;
 $rows = array();
 if ($q !== '') {
-    // 预处理绑定参数，用户输入中的通配符仅影响匹配范围，不构成注入
+    // Bound parameters; wildcards in user input only widen the match, never inject SQL
     $like = '%' . $q . '%';
     $params = array($like, $like, $like);
     $total = intval(cn_db_value(
@@ -34,16 +34,16 @@ if ($q !== '') {
     $totalPages = 1;
 }
 
-cn_head($q !== '' ? '搜索：' . $q : '搜索资讯', '', '', '');
+cn_head($q !== '' ? 'Search: ' . $q : 'Search', '', '', '');
 echo '<section class="main">';
-echo '<div class="page-head"><h1>资讯搜索</h1><span class="sub">支持标题、摘要与标签关键词</span></div>';
+echo '<div class="page-head"><h1>Search</h1><span class="sub">Search by title, summary or tag</span></div>';
 echo '<form class="search-form" method="get" action="' . cn_base_url() . '/search.php">'
-    . '<input type="search" name="q" value="' . h($q) . '" placeholder="输入关键词，例如：Bitcoin、ETF、监管" maxlength="50">'
-    . '<button type="submit">搜索</button></form>';
+    . '<input type="search" name="q" value="' . h($q) . '" placeholder="Try: Bitcoin, ETF, Regulation" maxlength="50">'
+    . '<button type="submit">Search</button></form>';
 if ($q !== '') {
-    echo '<p class="search-hint">关键词「' . h($q) . '」找到 ' . $total . ' 条结果</p>';
+    echo '<p class="search-hint">Found ' . $total . ' result' . ($total == 1 ? '' : 's') . ' for &ldquo;' . h($q) . '&rdquo;</p>';
     if (empty($rows)) {
-        echo '<div class="empty-state"><div class="big">◇</div><p>没有找到相关资讯，换个关键词试试</p></div>';
+        echo '<div class="empty-state"><div class="big">&#9671;</div><p>No matching articles. Try another keyword.</p></div>';
     } else {
         echo '<div class="article-list">';
         foreach ($rows as $row) {

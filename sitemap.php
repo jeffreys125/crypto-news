@@ -1,5 +1,5 @@
 <?php
-/** 简易 sitemap，配合 robots.txt 使用 */
+/** Simple sitemap, referenced by robots.txt */
 require_once dirname(__FILE__) . '/inc/bootstrap.php';
 
 $base = cn_base_url();
